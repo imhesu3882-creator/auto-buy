@@ -10,11 +10,11 @@
 # ==========================================================
 # 한국투자증권 API
 # ==========================================================
-# 방금 넣으셨던 모의투자 APP KEY를 다시 넣어주세요
-APP_KEY = "PSJbO5Jd83iOL0JbEeg13LWg58OvdIobJorc"
+# 발급받으신 모의투자 APP KEY를 입력하세요
+APP_KEY = ""
 
-# 방금 넣으셨던 모의투자 APP SECRET를 다시 넣어주세요
-APP_SECRET = "yCcCYagqkZpkvMxvQtIOXFG5mp1nGXTu47cGD+5UObiX/0PjtWX1ViRvKMgaMkY1nXBa7NM8nTaR82nhgwomwunBmZOVRAvx6rfKirR87HoZajoM2wLAh36Wl7zIaU00YUBG2IBRzePyERcOWjXyJ2Qo1ID6CHRNj6leqvTqgp9NhdOc1cA="
+# 발급받으신 모의투자 APP SECRET를 입력하세요
+APP_SECRET = ""
 
 # 실제 주문 사용 여부
 # False = 가상매매만 수행 (현재 상태)
@@ -39,15 +39,16 @@ MIN_CASH = 500_000
 # ==========================================================
 # 관심종목 (종목명 : 종목코드)
 # ==========================================================
+# 비상장 종목이었던 LG CNS를 대형주인 NAVER로 변경하여 안정성을 높였습니다.
 STOCKS = {
     "삼성전자": "005930",
     "SK하이닉스": "000660",
     "삼성전기": "009150",
-    "LG CNS": "064400"
+    "NAVER": "035420"
 }
 
-# 새로고침 주기 (초)
-REFRESH_SECONDS = 1
+# 새로고침 주기 (초) - API 호출 제한(트래픽 초과) 방지를 위해 5초로 늘립니다.
+REFRESH_SECONDS = 5
 
 # 로그 및 지표 설정
 MAX_HISTORY = 1000
@@ -79,8 +80,8 @@ USE_SPLIT_SELL = True
 SPLIT_SELL_COUNT = 2
 
 ENABLE_AI_SCORE = True
-BUY_SCORE = 80
-SELL_SCORE = 25
+BUY_SCORE = 65  # 신호가 더 유연하게 잡히도록 진입 장벽을 80에서 65로 낮췄습니다.
+SELL_SCORE = 35 # 청산 장벽을 25에서 35로 조정했습니다.
 
 SCORE_RSI = 20
 SCORE_MACD = 20
