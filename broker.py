@@ -1,6 +1,6 @@
 """
 ==========================================================
-AI AUTO TRADER - broker.py (대소문자 완벽 방어 최종본)
+AI AUTO TRADER - broker.py (종목코드 6자리 정렬 진짜 최종본)
 ==========================================================
 """
 import time, requests, pandas as pd, yfinance as yf
@@ -28,13 +28,16 @@ def get_headers():
 
 def get_price(stock_code: str):
     now = time.time()
-    if stock_code in PRICE_CACHE and now - PRICE_CACHE_TIME.get(stock_code, 0) < CACHE_SEC: return PRICE_CACHE[stock_code]
+    # 종목 코드가 숫자형태로 오면 맨 앞 0이 잘리므로 반드시 문자열 6자리로 강제 고정
+    code_str = str(stock_code).strip().zfill(6)
+    
+    if code_str in PRICE_CACHE and now - PRICE_CACHE_TIME.get(code_str, 0) < CACHE_SEC: return PRICE_CACHE[code_str]
     headers = get_headers(); headers["tr_id"] = "FHKST01010100"
     try:
-        res = session.get(f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price", headers=headers, params={"fid_cond_mrkt_div_code": "J", "fid_input_iscd": stock_code}, timeout=10)
+        res = session.get(f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price", headers=headers, params={"fid_cond_mrkt_div_code": "J", "fid_input_iscd": code_str}, timeout=10)
         data = res.json()
         price = int(data["output"]["stck_prpr"]) if data.get("rt_cd") == "0" else int(data.get("output", {}).get("stck_prpr", 0))
-        if price > 0: PRICE_CACHE[stock_code], PRICE_CACHE_TIME[stock_code] = price, now
+        if price > 0: PRICE_CACHE[code_str], PRICE_CACHE_TIME[code_str] = price, now
         return price if price > 0 else None
     except: return None
 
@@ -44,7 +47,6 @@ def get_recent_trades(limit=20): return account["trades"][-limit:]
 def get_total_asset(prices: dict):
     total = account["balance"]
     for name, pos in account["positions"].items():
-        # 대소문자 무시하고 매칭되도록 보완
         p = prices.get(name) or prices.get(name.upper()) or prices.get(name.lower())
         if p: total += p * pos["qty"]
     return total
@@ -56,7 +58,6 @@ def get_total_pnl(prices: dict):
 
 def generate_signals(prices: dict):
     signals = {}
-    # config의 TICKERS와 STOCKS의 대소문자가 달라도 전부 매칭되도록 딕셔너리 정화
     upper_tickers = {k.upper(): v for k, v in TICKERS.items()}
     upper_stocks = {k.upper(): v for k, v in STOCKS.items()}
     
@@ -64,7 +65,9 @@ def generate_signals(prices: dict):
         uname = name.upper()
         if not price: signals[name] = {"action": "HOLD", "score": 0, "price": 0}; continue
         try:
-            ticker = upper_tickers.get(uname, f"{upper_stocks.get(uname)}.KS")
+            # 야후파이낸스용 코드 정형화 (.KS 처리)
+            raw_code = str(upper_stocks.get(uname)).strip().zfill(6)
+            ticker = upper_tickers.get(uname, f"{raw_code}.KS")
             df = yf.Ticker(ticker).history(period="1mo", interval="1d")
             if df.empty or len(df) < 14: signals[name] = {"action": "HOLD", "score": 50, "price": price}; continue
             rsi = calculate_rsi(df)
@@ -76,6 +79,5 @@ def generate_signals(prices: dict):
 
 def run_cycle():
     p = get_multiple_prices(STOCKS)
-    # 대시보드가 어떤 대소문자로 요청하든 다 응답하도록 복사본 생성
     p_extended = {**p, **{k.upper(): v for k, v in p.items()}, **{k.lower(): v for k, v in p.items()}}
     return {"prices": p_extended, "signals": generate_signals(p), "account": account}
