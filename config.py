@@ -3,17 +3,17 @@
  AI AUTO TRADER
  config.py
 ----------------------------------------------------------
- 프로젝트 전체 설정
+ 프로젝트 전체 설정 (모의투자 서버 주소로 수정 완료)
 ==========================================================
 """
 
 # ==========================================================
 # 한국투자증권 API
 # ==========================================================
-# 발급받은 APP KEY 입력 (반드시 채워주세요)
+# 방금 넣으셨던 모의투자 APP KEY를 다시 넣어주세요
 APP_KEY = "PSJbO5Jd83iOL0JbEeg13LWg58OvdIobJorc"
 
-# 발급받은 APP SECRET 입력 (반드시 채워주세요)
+# 방금 넣으셨던 모의투자 APP SECRET를 다시 넣어주세요
 APP_SECRET = "yCcCYagqkZpkvMxvQtIOXFG5mp1nGXTu47cGD+5UObiX/0PjtWX1ViRvKMgaMkY1nXBa7NM8nTaR82nhgwomwunBmZOVRAvx6rfKirR87HoZajoM2wLAh36Wl7zIaU00YUBG2IBRzePyERcOWjXyJ2Qo1ID6CHRNj6leqvTqgp9NhdOc1cA="
 
 # 실제 주문 사용 여부
@@ -26,8 +26,8 @@ REAL_TRADING = False
 REAL_BASE_URL = "https://openapi.koreainvestment.com:9443"
 VIRTUAL_BASE_URL = "https://openapivts.koreainvestment.com:29443"
 
-# 현재는 실시간 시세만 사용
-BASE_URL = REAL_BASE_URL
+# [핵심 수정] 모의투자 키를 사용할 때는 반드시 VIRTUAL 서버 주소를 바라봐야 합니다.
+BASE_URL = VIRTUAL_BASE_URL
 
 # ==========================================================
 # 투자금
