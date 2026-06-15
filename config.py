@@ -11,10 +11,10 @@
 # 한국투자증권 API
 # ==========================================================
 # 발급받은 APP KEY 입력 (반드시 채워주세요)
-APP_KEY = ""
+APP_KEY = "PSJbO5Jd83iOL0JbEeg13LWg58OvdIobJorc"
 
 # 발급받은 APP SECRET 입력 (반드시 채워주세요)
-APP_SECRET = ""
+APP_SECRET = "yCcCYagqkZpkvMxvQtIOXFG5mp1nGXTu47cGD+5UObiX/0PjtWX1ViRvKMgaMkY1nXBa7NM8nTaR82nhgwomwunBmZOVRAvx6rfKirR87HoZajoM2wLAh36Wl7zIaU00YUBG2IBRzePyERcOWjXyJ2Qo1ID6CHRNj6leqvTqgp9NhdOc1cA="
 
 # 실제 주문 사용 여부
 # False = 가상매매만 수행 (현재 상태)
