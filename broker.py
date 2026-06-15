@@ -1,6 +1,6 @@
 """
 ==========================================================
-AI AUTO TRADER - broker.py (최종 완벽본)
+AI AUTO TRADER - broker.py (진짜 최종 오타 수정 완벽본)
 ==========================================================
 """
 import time, requests, pandas as pd, yfinance as yf
