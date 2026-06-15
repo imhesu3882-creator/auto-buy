@@ -2,33 +2,30 @@ import streamlit as st
 import broker
 import pandas as pd
 
-# 1. 자동 새로고침 설정 (웹페이지를 5초마다 새로고침)
-st.set_page_config(page_title="AI Auto Trader", layout="wide")
-st.markdown("""
-    <meta http-equiv="refresh" content="5">
-    <style>
-    .stMetric { background-color: #161b22; padding: 20px; border-radius: 15px; border: 1px solid #30363d; }
-    </style>
-    """, unsafe_allow_html=True)
-
 st.title("📊 AI Auto Trading Dashboard")
 
-# 2. 데이터 수집
 data = broker.run_cycle()
 
-# 3. 메트릭 디자인 복구 (이쁘게!)
+# 1. 가격 표시
 st.subheader("📈 실시간 가격")
 cols = st.columns(len(data["prices"]))
 for i, (name, price) in enumerate(data["prices"].items()):
-    cols[i].metric(name, f"{price:,} 원" if price and price > 0 else "조회 중...")
+    val = f"{price:,} 원" if price and price > 0 else "데이터 수집 중"
+    cols[i].metric(name, val)
 
-# 4. 데이터프레임 대신 '스트림릿 스타일 표' 사용 (타입 오류 방지)
+# 2. 신호 표 표시 (오류를 일으키는 자동 갱신 및 복잡한 변환 완전히 제거)
 st.subheader("🧠 AI 신호 상세")
-df = pd.DataFrame(data["signals"]).T
-# 'Action' 컬럼만 이모지 추가하여 디자인 살리기
-if 'action' in df.columns:
-    df['action'] = df['action'].apply(lambda x: f"🟢 {x}" if x == 'BUY' else f"🔴 {x}" if x == 'SELL' else f"⚪ {x}")
-
-st.table(df)
-
-st.caption("5초마다 자동 갱신 중입니다.")
+if data["signals"]:
+    # 데이터 타입을 확실히 하기 위해 딕셔너리를 직접 가공
+    df_data = []
+    for name, info in data["signals"].items():
+        df_data.append({
+            "종목": name,
+            "신호": str(info.get("action", "HOLD")),
+            "점수": str(info.get("score", "0")),
+            "가격": str(info.get("price", "0"))
+        })
+    df = pd.DataFrame(df_data)
+    st.table(df)
+else:
+    st.write("데이터 수집 대기 중...")
