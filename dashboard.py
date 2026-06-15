@@ -1,140 +1,194 @@
-"""
-==========================================================
-AI AUTO TRADER
-dashboard.py
-----------------------------------------------------------
-HTS UI (Streamlit)
-==========================================================
-"""
-
-import streamlit as st
 import time
+import requests
 import pandas as pd
 
 from config import *
-from broker import *
 
 # ==========================================================
-# 페이지 설정
+# 상태 (가상 계좌)
 # ==========================================================
 
-st.set_page_config(
-    page_title="AI Auto Trader",
-    layout="wide"
-)
+account = {
+    "balance": START_BALANCE,
+    "positions": {},
+    "trades": []
+}
 
-st.title("📊 Auto Trading Dashboard 🤖")
+ACCESS_TOKEN = None
+TOKEN_EXPIRE = 0
+SESSION = requests.Session()
 
 # ==========================================================
-# 자동 실행 사이클
+# 토큰
 # ==========================================================
 
-placeholder = st.empty()
+def is_token_valid():
+    global ACCESS_TOKEN, TOKEN_EXPIRE
+    return ACCESS_TOKEN is not None and time.time() < TOKEN_EXPIRE
 
-while True:
 
-    cycle = run_cycle()
+def issue_token():
+    global ACCESS_TOKEN, TOKEN_EXPIRE
 
-    prices = cycle["prices"]
-    signals = cycle["signals"]
-    account_state = cycle["account"]
+    url = f"{BASE_URL}/oauth2/tokenP"
 
-    with placeholder.container():
+    payload = {
+        "grant_type": "client_credentials",
+        "appkey": APP_KEY,
+        "appsecret": APP_SECRET
+    }
 
-        # ==========================================
-        # 가격
-        # ==========================================
+    res = SESSION.post(url, json=payload, timeout=10)
 
-        st.subheader("📈 실시간 가격")
+    if res.status_code != 200:
+        raise Exception(res.text)
 
-        for name, price in prices.items():
+    data = res.json()
 
-            if price is None:
-                st.error(f"{name} : 데이터 오류")
-            else:
-                st.write(f"**{name}** : {price:,}원")
+    ACCESS_TOKEN = data["access_token"]
+    TOKEN_EXPIRE = time.time() + int(data["expires_in"]) - 60
 
-        st.divider()
 
-        # ==========================================
-        # 계좌
-        # ==========================================
+def get_headers():
+    if not is_token_valid():
+        issue_token()
 
-        total_asset = get_total_asset(prices)
+    return {
+        "content-type": "application/json",
+        "authorization": f"Bearer {ACCESS_TOKEN}",
+        "appkey": APP_KEY,
+        "appsecret": APP_SECRET
+    }
 
-        st.subheader("💰 계좌")
+# ==========================================================
+# 가격
+# ==========================================================
 
-        st.write(f"현금: {account_state['balance']:,}원")
+PRICE_CACHE = {}
+PRICE_CACHE_TIME = {}
+CACHE_SEC = 1
 
-        st.write(f"총 자산: {total_asset:,}원")
 
-        pnl, pnl_pct = get_total_pnl(prices)
+def get_price(code):
+    now = time.time()
 
-        st.write(f"손익: {pnl:+,}원 ({pnl_pct:+.2f}%)")
+    if code in PRICE_CACHE:
+        if now - PRICE_CACHE_TIME.get(code, 0) < CACHE_SEC:
+            return PRICE_CACHE[code]
 
-        st.divider()
+    url = f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price"
 
-        # ==========================================
-        # 포지션
-        # ==========================================
+    try:
+        res = SESSION.get(
+            url,
+            headers=get_headers(),
+            params={
+                "fid_cond_mrkt_div_code": "J",
+                "fid_input_iscd": code
+            },
+            timeout=10
+        )
 
-        st.subheader("📦 보유 종목")
+        data = res.json()
+        price = int(data["output"]["stck_prpr"])
 
-        positions = get_positions()
+        PRICE_CACHE[code] = price
+        PRICE_CACHE_TIME[code] = now
 
-        if len(positions) == 0:
-            st.info("보유 없음")
-        else:
-            for name, pos in positions.items():
+        return price
 
-                current_price = prices.get(name, 0)
+    except:
+        return None
 
-                st.write(
-                    f"**{name}** | "
-                    f"수량: {pos['qty']} | "
-                    f"평단: {pos['avg_price']:,} | "
-                    f"현재가: {current_price:,}"
-                )
 
-        st.divider()
+def get_multiple_prices(stock_dict):
+    return {k: get_price(v) for k, v in stock_dict.items()}
 
-        # ==========================================
-        # 거래 내역
-        # ==========================================
+# ==========================================================
+# 캔들
+# ==========================================================
 
-        st.subheader("🧾 거래 내역")
+def get_daily_chart(code, count=100):
+    url = f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice"
 
-        trades = get_recent_trades()
+    try:
+        res = SESSION.get(
+            url,
+            headers=get_headers(),
+            params={
+                "fid_cond_mrkt_div_code": "J",
+                "fid_input_iscd": code,
+                "fid_period_div_code": "D",
+                "fid_org_adj_prc": "1"
+            },
+            timeout=10
+        )
 
-        if len(trades) == 0:
-            st.info("거래 없음")
-        else:
-            df = pd.DataFrame(trades)
-            st.dataframe(df, use_container_width=True)
+        data = res.json()["output2"]
+        df = pd.DataFrame(data)
 
-        st.divider()
+        df = df.rename(columns={
+            "stck_bsop_date": "date",
+            "stck_oprc": "open",
+            "stck_hgpr": "high",
+            "stck_lwpr": "low",
+            "stck_clpr": "close",
+            "acml_vol": "volume"
+        })
 
-        # ==========================================
-        # AI 신호
-        # ==========================================
+        return df.tail(count)
 
-        st.subheader("🧠 AI 신호")
+    except:
+        return pd.DataFrame()
 
-        for name, sig in signals.items():
+# ==========================================================
+# 포트폴리오
+# ==========================================================
 
-            color = "🟡"
+def get_positions():
+    return account["positions"]
 
-            if sig["action"] == "BUY":
-                color = "🟢"
-            elif sig["action"] == "SELL":
-                color = "🔴"
 
-            st.write(
-                f"{color} **{name}** | "
-                f"{sig['action']} | "
-                f"Score: {sig['score']} | "
-                f"{sig['price']:,}"
-            )
+def get_recent_trades(limit=20):
+    return account["trades"][-limit:]
 
-    time.sleep(REFRESH_SECONDS)
-  
+
+def get_total_asset(prices):
+    asset = account["balance"]
+
+    for name, pos in account["positions"].items():
+        price = prices.get(name)
+        if price:
+            asset += price * pos["qty"]
+
+    return asset
+
+
+def get_total_pnl(prices):
+    total = get_total_asset(prices)
+    pnl = total - START_BALANCE
+    return pnl, pnl / START_BALANCE * 100
+
+# ==========================================================
+# 핵심 실행 루프 (dashboard용)
+# ==========================================================
+
+def run_cycle():
+    prices = get_multiple_prices(STOCKS)
+
+    signals = {}
+
+    for name, code in STOCKS.items():
+        price = prices.get(name)
+
+        signals[name] = {
+            "action": "HOLD",
+            "score": 50,
+            "price": price or 0
+        }
+
+    return {
+        "prices": prices,
+        "signals": signals,
+        "account": account
+    }
