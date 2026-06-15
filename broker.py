@@ -9,7 +9,6 @@ def get_token():
             "appkey": config.APP_KEY,
             "appsecret": config.APP_SECRET
         }
-        # 타임아웃을 설정해 지연 시 무한 대기를 방지합니다.
         res = requests.post(url, json=body, timeout=5)
         return res.json().get("access_token", "")
     except:
@@ -40,11 +39,11 @@ def run_cycle():
         price = get_price(code, token)
         results["prices"][name] = price
         
-        # 데이터가 없을 때도 구조를 유지하여 대시보드 충돌 방지
+        # 딕셔너리 구조를 명확히 하여 이후 DataFrame 변환 시 에러 차단
         results["signals"][name] = {
             "종목코드": str(code),
-            "현재가": f"{price:,}원" if price > 0 else "조회 지연",
-            "AI신호": "HOLD", # 실제 AI 로직 연결 전 기본값
-            "상태": "정상" if price > 0 else "연결 확인 필요"
+            "현재가": f"{price:,}원" if price > 0 else "지연",
+            "AI신호": "HOLD",
+            "상태": "정상" if price > 0 else "연결대기"
         }
     return results
