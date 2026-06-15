@@ -6,7 +6,7 @@ broker.py (PRODUCTION SAFE VERSION - FULLY IMPLEMENTED)
 ✔ 한국투자증권 API 연동 (시세 - tr_id 헤더 수정 완료)
 ✔ Paper Trading Engine (실매매 차단 및 가상 매매 완벽 구현)
 ✔ yfinance 연동 및 기술적 지표 기반 실시간 신호 생성 완료
-✔ 잘려있던 generate_signals 및 run_cycle 로직 완벽 복구
+✔ 잘려있던 run_cycle 로직 완벽 마무리 복구
 ==========================================================
 """
 
@@ -65,7 +65,7 @@ def get_headers():
 def get_price(stock_code: str):
     now = time.time()
     if stock_code in PRICE_CACHE:
-        if now - PRICE_CACHE_TIME.get(stock_code, 0) < CACHE_SEC:
+        if now - PRICE_CACHE_TIME.get(stock_code, 0) < CASTE_SEC:
             return PRICE_CACHE[stock_code]
 
     url = f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price"
@@ -161,4 +161,11 @@ def generate_signals(prices: dict):
     return signals
 
 def run_cycle():
-    """대시보드가 요구하는 주기
+    """대시보드가 요구하는 주기별 전체 데이터를 수집하여 반환합니다."""
+    prices = get_multiple_prices(STOCKS)
+    signals = generate_signals(prices)
+    return {
+        "prices": prices,
+        "signals": signals,
+        "account": account
+    }
