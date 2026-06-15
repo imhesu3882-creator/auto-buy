@@ -1,10 +1,10 @@
 """
 ==========================================================
-AI AUTO TRADER - broker.py (종목코드 6자리 정렬 진짜 최종본)
+AI AUTO TRADER - broker.py (최종 검수본)
 ==========================================================
 """
 import time, requests, pandas as pd, yfinance as yf
-from config import *
+from config import STOCKS, TICKERS, START_BALANCE, BASE_URL, APP_KEY, APP_SECRET
 from indicators import calculate_rsi, calculate_macd, calculate_score
 
 session = requests.Session()
@@ -28,9 +28,7 @@ def get_headers():
 
 def get_price(stock_code: str):
     now = time.time()
-    # 종목 코드가 숫자형태로 오면 맨 앞 0이 잘리므로 반드시 문자열 6자리로 강제 고정
     code_str = str(stock_code).strip().zfill(6)
-    
     if code_str in PRICE_CACHE and now - PRICE_CACHE_TIME.get(code_str, 0) < CACHE_SEC: return PRICE_CACHE[code_str]
     headers = get_headers(); headers["tr_id"] = "FHKST01010100"
     try:
@@ -47,7 +45,7 @@ def get_recent_trades(limit=20): return account["trades"][-limit:]
 def get_total_asset(prices: dict):
     total = account["balance"]
     for name, pos in account["positions"].items():
-        p = prices.get(name) or prices.get(name.upper()) or prices.get(name.lower())
+        p = prices.get(name)
         if p: total += p * pos["qty"]
     return total
 
@@ -58,16 +56,12 @@ def get_total_pnl(prices: dict):
 
 def generate_signals(prices: dict):
     signals = {}
-    upper_tickers = {k.upper(): v for k, v in TICKERS.items()}
-    upper_stocks = {k.upper(): v for k, v in STOCKS.items()}
-    
-    for name, price in prices.items():
-        uname = name.upper()
-        if not price: signals[name] = {"action": "HOLD", "score": 0, "price": 0}; continue
+    for name, code in STOCKS.items():
+        price = prices.get(name)
+        if not price: 
+            signals[name] = {"action": "HOLD", "score": 0, "price": 0}; continue
         try:
-            # 야후파이낸스용 코드 정형화 (.KS 처리)
-            raw_code = str(upper_stocks.get(uname)).strip().zfill(6)
-            ticker = upper_tickers.get(uname, f"{raw_code}.KS")
+            ticker = TICKERS.get(name, f"{str(code).zfill(6)}.KS")
             df = yf.Ticker(ticker).history(period="1mo", interval="1d")
             if df.empty or len(df) < 14: signals[name] = {"action": "HOLD", "score": 50, "price": price}; continue
             rsi = calculate_rsi(df)
@@ -79,5 +73,4 @@ def generate_signals(prices: dict):
 
 def run_cycle():
     p = get_multiple_prices(STOCKS)
-    p_extended = {**p, **{k.upper(): v for k, v in p.items()}, **{k.lower(): v for k, v in p.items()}}
-    return {"prices": p_extended, "signals": generate_signals(p), "account": account}
+    return {"prices": p, "signals": generate_signals(p), "account": account}
