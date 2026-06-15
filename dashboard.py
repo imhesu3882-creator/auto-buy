@@ -70,17 +70,17 @@ with col1:
         st.info(f"**총 손익:** 0 원 (0.00%)")
 
 with col2:
-    st.subheader("🧠 AI 신호")
+    st.subheader("🧠 AI 신호 및 점수")
     for name, sig in signals.items():
-        color = "🟡"
+        color = "🟡 HOLD"
         if sig["action"] == "BUY":
-            color = "🟢"
+            color = "🟢 BUY"
         elif sig["action"] == "SELL":
-            color = "🔴"
+            color = "🔴 SELL"
         
         st.write(
-            f"{color} **{name}** | {sig['action']} | "
-            f"Score: {sig['score']} | {sig['price']:,} 원"
+            f"**{name}** | 신호: {color} | "
+            f"AI 점수: ` {sig['score']} 점 ` | 현재가: {sig['price']:,} 원"
         )
 
 st.divider()
