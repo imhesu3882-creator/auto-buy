@@ -1,9 +1,9 @@
 """
 ==========================================================
  AI AUTO TRADER
- config.py
+ config.py (최종 완성본)
 ----------------------------------------------------------
- 프로젝트 전체 설정 (모의투자 서버 주소로 수정 완료)
+ 프로젝트 전체 설정 (TICKERS 및 필수 키값 포함)
 ==========================================================
 """
 
@@ -17,7 +17,6 @@ APP_KEY = "PSJbO5Jd83iOL0JbEeg13LWg58OvdIobJorc"
 APP_SECRET = "yCcCYagqkZpkvMxvQtIOXFG5mp1nGXTu47cGD+5UObiX/0PjtWX1ViRvKMgaMkY1nXBa7NM8nTaR82nhgwomwunBmZOVRAvx6rfKirR87HoZajoM2wLAh36Wl7zIaU00YUBG2IBRzePyERcOWjXyJ2Qo1ID6CHRNj6leqvTqgp9NhdOc1cA="
 
 # 실제 주문 사용 여부
-# False = 가상매매만 수행 (현재 상태)
 REAL_TRADING = False
 
 # ==========================================================
@@ -26,7 +25,6 @@ REAL_TRADING = False
 REAL_BASE_URL = "https://openapi.koreainvestment.com:9443"
 VIRTUAL_BASE_URL = "https://openapivts.koreainvestment.com:29443"
 
-# [핵심 수정] 모의투자 키를 사용할 때는 반드시 VIRTUAL 서버 주소를 바라봐야 합니다.
 BASE_URL = VIRTUAL_BASE_URL
 
 # ==========================================================
@@ -37,9 +35,8 @@ INVEST_PER_TRADE = 1_000_000
 MIN_CASH = 500_000
 
 # ==========================================================
-# 관심종목 (종목명 : 종목코드)
+# 관심종목 및 티커 설정
 # ==========================================================
-# 비상장 종목이었던 LG CNS를 대형주인 NAVER로 변경하여 안정성을 높였습니다.
 STOCKS = {
     "삼성전자": "005930",
     "SK하이닉스": "000660",
@@ -47,7 +44,14 @@ STOCKS = {
     "NAVER": "035420"
 }
 
-# 새로고침 주기 (초) - API 호출 제한(트래픽 초과) 방지를 위해 5초로 늘립니다.
+TICKERS = {
+    "삼성전자": "005930.KS",
+    "SK하이닉스": "000660.KS",
+    "삼성전기": "009150.KS",
+    "NAVER": "035420.KS"
+}
+
+# 새로고침 주기 (초)
 REFRESH_SECONDS = 5
 
 # 로그 및 지표 설정
@@ -80,8 +84,8 @@ USE_SPLIT_SELL = True
 SPLIT_SELL_COUNT = 2
 
 ENABLE_AI_SCORE = True
-BUY_SCORE = 65  # 신호가 더 유연하게 잡히도록 진입 장벽을 80에서 65로 낮췄습니다.
-SELL_SCORE = 35 # 청산 장벽을 25에서 35로 조정했습니다.
+BUY_SCORE = 65
+SELL_SCORE = 35
 
 SCORE_RSI = 20
 SCORE_MACD = 20
