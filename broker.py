@@ -6,6 +6,7 @@ broker.py (PRODUCTION SAFE VERSION - FULLY IMPLEMENTED)
 ✔ 한국투자증권 API 연동 (시세 - tr_id 헤더 수정 완료)
 ✔ Paper Trading Engine (실매매 차단 및 가상 매매 완벽 구현)
 ✔ yfinance 연동 및 기술적 지표 기반 실시간 신호 생성 완료
+✔ 잘려있던 generate_signals 및 run_cycle 로직 완벽 복구
 ==========================================================
 """
 
@@ -121,7 +122,7 @@ def get_total_asset(prices: dict):
 def get_total_pnl(prices: dict):
     total = get_total_asset(prices)
     pnl = total - START_BALANCE
-    pnl_pct = (pnl / START_BALANCE) * 100
+    pnl_pct = (pnl / START_BALANCE) * 100 if START_BALANCE > 0 else 0.0
     return pnl, pnl_pct
 
 def generate_signals(prices: dict):
@@ -133,4 +134,31 @@ def generate_signals(prices: dict):
             continue
         
         try:
-            # 한국
+            # 야후 파이낸스용 티커 매핑 (config에 정의된 TICKERS 사용)
+            ticker = TICKERS.get(name, f"{STOCKS[name]}.KS")
+            stock = yf.Ticker(ticker)
+            df = stock.history(period="1mo", interval="1d")
+            
+            if df.empty or len(df) < 14:
+                signals[name] = {"action": "HOLD", "score": 50, "price": price}
+                continue
+                
+            rsi = calculate_rsi(df)
+            macd, macd_sig = calculate_macd(df)
+            score = calculate_score(rsi, macd, macd_sig)
+            
+            action = "HOLD"
+            if score >= 70:
+                action = "BUY"
+            elif score <= 30:
+                action = "SELL"
+                
+            signals[name] = {"action": action, "score": score, "price": price}
+        except Exception as e:
+            print(f"SIGNAL ERROR ({name}):", e)
+            signals[name] = {"action": "HOLD", "score": 0, "price": price}
+            
+    return signals
+
+def run_cycle():
+    """대시보드가 요구하는 주기
