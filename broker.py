@@ -14,11 +14,10 @@ def get_headers():
     return {"content-type": "application/json", "authorization": f"Bearer {ACCESS_TOKEN}", "appkey": config.APP_KEY, "appsecret": config.APP_SECRET}
 
 def get_price(code):
-    # 여기서 확실하게 6자리 문자열로 만듭니다.
-    code_str = str(code).zfill(6)
-    headers = get_headers(); headers["tr_id"] = "FHKST01010100"
-    res = session.get(f"{config.BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price", headers=headers, params={"fid_cond_mrkt_div_code": "J", "fid_input_iscd": code_str})
-    try: return int(res.json()["output"]["stck_prpr"])
+    try:
+        headers = get_headers(); headers["tr_id"] = "FHKST01010100"
+        res = session.get(f"{config.BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price", headers=headers, params={"fid_cond_mrkt_div_code": "J", "fid_input_iscd": code})
+        return int(res.json()["output"]["stck_prpr"])
     except: return None
 
 def run_cycle():
@@ -28,7 +27,8 @@ def run_cycle():
     for name, code in config.STOCKS.items():
         try:
             df = yf.Ticker(config.TICKERS[name]).history(period="1mo", interval="1d")
-            rsi, macd, hist = calculate_rsi(df), calculate_macd(df)[0], calculate_macd(df)[2]
+            rsi = calculate_rsi(df)
+            macd, macd_sig, hist = calculate_macd(df)
             score = calculate_score(rsi.iloc[-1], hist.iloc[-1], 1.0)
             signals[name] = {"action": "BUY" if score >= config.BUY_SCORE else "SELL" if score <= config.SELL_SCORE else "HOLD", "score": score, "price": prices[name]}
         except: signals[name] = {"action": "HOLD", "score": 0, "price": prices[name]}
