@@ -1,25 +1,18 @@
 import streamlit as st
 import broker
-import config
-
-st.set_page_config(page_title="AI Auto Trader", layout="wide")
-st.title("📊 AI Auto Trading Dashboard")
-
-# 데이터 로딩
-data = broker.run_cycle()
-prices = data["prices"]
-signals = data["signals"]
-
-# 실시간 가격 섹션
-st.subheader("📈 실시간 가격")
-cols = st.columns(len(prices))
-for i, (name, price) in enumerate(prices.items()):
-    cols[i].metric(name, f"{price:,} 원" if price else "수집 대기중...")
-
-# AI 신호 섹션
-st.subheader("🧠 AI 신호 및 점수")
 import pandas as pd
-df = pd.DataFrame(signals).T
+
+st.title("📊 AI Auto Trading Dashboard")
+data = broker.run_cycle()
+
+# 1. 가격 표시
+cols = st.columns(len(data["prices"]))
+for i, (name, price) in enumerate(data["prices"].items()):
+    cols[i].metric(name, f"{price:,} 원" if price > 0 else "데이터 수집 중")
+
+# 2. 신호 표 표시 (에러 방지)
+st.subheader("🧠 AI 신호 상세")
+df = pd.DataFrame(data["signals"]).T
 st.table(df)
 
 if st.button("새로고침"):
