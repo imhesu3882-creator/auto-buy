@@ -1,6 +1,6 @@
 """
 ==========================================================
-AI AUTO TRADER - broker.py (진짜 최종 오타 수정 완벽본)
+AI AUTO TRADER - broker.py (대소문자 완벽 방어 최종본)
 ==========================================================
 """
 import time, requests, pandas as pd, yfinance as yf
@@ -44,7 +44,8 @@ def get_recent_trades(limit=20): return account["trades"][-limit:]
 def get_total_asset(prices: dict):
     total = account["balance"]
     for name, pos in account["positions"].items():
-        p = prices.get(name)
+        # 대소문자 무시하고 매칭되도록 보완
+        p = prices.get(name) or prices.get(name.upper()) or prices.get(name.lower())
         if p: total += p * pos["qty"]
     return total
 
@@ -55,10 +56,16 @@ def get_total_pnl(prices: dict):
 
 def generate_signals(prices: dict):
     signals = {}
+    # config의 TICKERS와 STOCKS의 대소문자가 달라도 전부 매칭되도록 딕셔너리 정화
+    upper_tickers = {k.upper(): v for k, v in TICKERS.items()}
+    upper_stocks = {k.upper(): v for k, v in STOCKS.items()}
+    
     for name, price in prices.items():
+        uname = name.upper()
         if not price: signals[name] = {"action": "HOLD", "score": 0, "price": 0}; continue
         try:
-            df = yf.Ticker(TICKERS.get(name, f"{STOCKS[name]}.KS")).history(period="1mo", interval="1d")
+            ticker = upper_tickers.get(uname, f"{upper_stocks.get(uname)}.KS")
+            df = yf.Ticker(ticker).history(period="1mo", interval="1d")
             if df.empty or len(df) < 14: signals[name] = {"action": "HOLD", "score": 50, "price": price}; continue
             rsi = calculate_rsi(df)
             macd, macd_sig = calculate_macd(df)
@@ -69,4 +76,6 @@ def generate_signals(prices: dict):
 
 def run_cycle():
     p = get_multiple_prices(STOCKS)
-    return {"prices": p, "signals": generate_signals(p), "account": account}
+    # 대시보드가 어떤 대소문자로 요청하든 다 응답하도록 복사본 생성
+    p_extended = {**p, **{k.upper(): v for k, v in p.items()}, **{k.lower(): v for k, v in p.items()}}
+    return {"prices": p_extended, "signals": generate_signals(p), "account": account}
