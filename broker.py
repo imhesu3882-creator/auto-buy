@@ -1,10 +1,21 @@
+"""
+==========================================================
+AI AUTO TRADER
+broker.py (FINAL CLEAN VERSION)
+----------------------------------------------------------
+✔ 한국투자증권 API 연동 (시세)
+✔ Paper Trading Engine (실매매 차단)
+✔ 전략 확장 구조
+✔ Streamlit run_cycle 지원
+==========================================================
+"""
+
 import time
 import requests
-import pandas as pd
 from config import *
 
 # ==========================================================
-# GLOBAL STATE
+# SESSION / GLOBAL STATE
 # ==========================================================
 
 session = requests.Session()
@@ -14,16 +25,20 @@ TOKEN_EXPIRE = 0
 
 account = {
     "balance": START_BALANCE,
-    "positions": {},
-    "trades": []
+    "positions": {},   # {name: {qty, avg_price}}
+    "trades": []       # 거래 로그
 }
+
+# ==========================================================
+# CACHE (API 최소화)
+# ==========================================================
 
 PRICE_CACHE = {}
 PRICE_CACHE_TIME = {}
 CACHE_SEC = 1
 
 # ==========================================================
-# TOKEN
+# TOKEN MANAGEMENT
 # ==========================================================
 
 def is_token_valid():
@@ -35,17 +50,21 @@ def issue_token():
 
     url = f"{BASE_URL}/oauth2/tokenP"
 
-    res = session.post(url, json={
+    payload = {
         "grant_type": "client_credentials",
         "appkey": APP_KEY,
         "appsecret": APP_SECRET
-    }, timeout=10)
+    }
 
+    res = session.post(url, json=payload, timeout=10)
     res.raise_for_status()
+
     data = res.json()
 
     ACCESS_TOKEN = data["access_token"]
     TOKEN_EXPIRE = time.time() + int(data["expires_in"]) - 60
+
+    print("✅ TOKEN ISSUED")
 
 
 def get_headers():
@@ -60,23 +79,30 @@ def get_headers():
     }
 
 # ==========================================================
-# PRICE
+# PRICE DATA
 # ==========================================================
 
-def get_price(code):
+def get_price(stock_code: str):
+
     now = time.time()
 
-    if code in PRICE_CACHE:
-        if now - PRICE_CACHE_TIME.get(code, 0) < CACHE_SEC:
-            return PRICE_CACHE[code]
+    # cache hit
+    if stock_code in PRICE_CACHE:
+        if now - PRICE_CACHE_TIME.get(stock_code, 0) < CACHE_SEC:
+            return PRICE_CACHE[stock_code]
 
     url = f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price"
 
     try:
-        res = session.get(url, headers=get_headers(), params={
-            "fid_cond_mrkt_div_code": "J",
-            "fid_input_iscd": code
-        }, timeout=10)
+        res = session.get(
+            url,
+            headers=get_headers(),
+            params={
+                "fid_cond_mrkt_div_code": "J",
+                "fid_input_iscd": stock_code
+            },
+            timeout=10
+        )
 
         data = res.json()
 
@@ -85,20 +111,21 @@ def get_price(code):
 
         price = int(data["output"]["stck_prpr"])
 
-        PRICE_CACHE[code] = price
-        PRICE_CACHE_TIME[code] = now
+        PRICE_CACHE[stock_code] = price
+        PRICE_CACHE_TIME[stock_code] = now
 
         return price
 
-    except:
+    except Exception as e:
+        print("PRICE ERROR:", e)
         return None
 
 
-def get_multiple_prices(stock_dict):
-    return {k: get_price(v) for k, v in stock_dict.items()}
+def get_multiple_prices(stock_dict: dict):
+    return {name: get_price(code) for name, code in stock_dict.items()}
 
 # ==========================================================
-# ACCOUNT
+# ACCOUNT SYSTEM
 # ==========================================================
 
 def get_positions():
@@ -109,56 +136,60 @@ def get_recent_trades(limit=20):
     return account["trades"][-limit:]
 
 
-def get_total_asset(prices):
+def get_total_asset(prices: dict):
+
     total = account["balance"]
 
     for name, pos in account["positions"].items():
         price = prices.get(name)
-        if price:
-            total += price * pos["qty"]
+        if price is None:
+            continue
+        total += price * pos["qty"]
 
     return total
 
 
-def get_total_pnl(prices):
+def get_total_pnl(prices: dict):
+
     total = get_total_asset(prices)
+
     pnl = total - START_BALANCE
-    return pnl, pnl / START_BALANCE * 100
+    pnl_pct = (pnl / START_BALANCE) * 100
+
+    return pnl, pnl_pct
 
 # ==========================================================
-# STRATEGY (RSI 간단 버전)
+# STRATEGY (SAFE DEFAULT)
 # ==========================================================
 
-def generate_signals(prices):
+def generate_signals(prices: dict):
+
     signals = {}
 
     for name, price in prices.items():
 
         if price is None:
-            signals[name] = {"action": "HOLD", "score": 0, "price": 0}
+            signals[name] = {
+                "action": "HOLD",
+                "score": 0,
+                "price": 0
+            }
             continue
 
-        # 아주 단순 전략 (확장 가능)
-        if price % 2 == 0:
-            action = "BUY"
-            score = 70
-        else:
-            action = "SELL"
-            score = 40
-
+        # 기본 전략 (무조건 HOLD 기본 → 안전 구조)
         signals[name] = {
-            "action": action,
-            "score": score,
+            "action": "HOLD",
+            "score": 0,
             "price": price
         }
 
     return signals
 
 # ==========================================================
-# PAPER TRADING ENGINE (핵심)
+# PAPER TRADING ENGINE (REAL SAFE MODE)
 # ==========================================================
 
-def execute_trade(name, signal):
+def execute_trade(name: str, signal: dict):
 
     price = signal["price"]
     action = signal["action"]
@@ -166,8 +197,21 @@ def execute_trade(name, signal):
     if price is None:
         return
 
+    # ======================================================
+    # REAL TRADING BLOCK (절대 실행 안됨)
+    # ======================================================
+    if REAL_TRADING is True:
+        print("🚨 REAL TRADING ENABLED - BLOCKED FOR SAFETY")
+        return
+
+    # ======================================================
     # BUY
-    if action == "BUY" and account["balance"] >= 100000:
+    # ======================================================
+    if action == "BUY":
+
+        if account["balance"] < 100000:
+            return
+
         qty = 1
         cost = price * qty
 
@@ -190,8 +234,11 @@ def execute_trade(name, signal):
             "qty": qty
         })
 
+    # ======================================================
     # SELL
-    if action == "SELL" and name in account["positions"]:
+    # ======================================================
+    elif action == "SELL" and name in account["positions"]:
+
         pos = account["positions"][name]
 
         qty = pos["qty"]
@@ -207,14 +254,15 @@ def execute_trade(name, signal):
         })
 
 # ==========================================================
-# MAIN CYCLE
+# MAIN ENGINE (STREAMLIT ENTRY POINT)
 # ==========================================================
 
 def run_cycle():
+
     prices = get_multiple_prices(STOCKS)
     signals = generate_signals(prices)
 
-    # 자동매매 실행 (시뮬레이션)
+    # execution
     for name, sig in signals.items():
         execute_trade(name, sig)
 
