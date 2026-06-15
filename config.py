@@ -12,10 +12,10 @@
 # ==========================================================
 
 # 발급받은 APP KEY 입력
-APP_KEY = ""
+APP_KEY = "PSS9DkPnf2w8NrpSOkFvzr1eZ4z1ARfTxhAM"
 
 # 발급받은 APP SECRET 입력
-APP_SECRET = ""
+APP_SECRET = "JxL97dyUIUEm/HGESa2+96UScCC/sFbXv5f+bS7LWhr4EinqT4hVM7eaNVgQ3uV0rHApUeT54cKYS2fF9HELxE83rAayp911l3G0IWSQQ5iUsDaVoUEeQdVUYE/LWG0Sb5zVEOkacU6Z3a1DAlb4i3NzNKqVtRXIrfDrv0IRU9s9pFZkp4g="
 
 # 실제 주문 사용 여부
 # False = 가상매매만 수행 (권장)
