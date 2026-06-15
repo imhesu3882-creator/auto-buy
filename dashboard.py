@@ -1,14 +1,16 @@
 import streamlit as st
 import broker
 
-st.title("📊 Auto Trading Dashboard")
-cycle = broker.run_cycle()
+st.set_page_config(page_title="AI Auto Trader", layout="wide")
+st.title("📊 AI Auto Trading Dashboard")
 
-# prices가 딕셔너리이므로 안전하게 출력
+cycle = broker.run_cycle()
 prices = cycle["prices"]
+
+st.subheader("📈 실시간 가격")
 cols = st.columns(len(prices))
 for col, (name, price) in zip(cols, prices.items()):
-    col.metric(name, f"{price:,} 원" if price else "데이터 없음")
+    col.metric(name, f"{price:,} 원" if price else "조회 대기중")
 
-st.write("### AI 신호 상세")
+st.subheader("🧠 AI 신호 및 점수")
 st.table(cycle["signals"])
